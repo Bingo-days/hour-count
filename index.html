@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hour Count</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6b7280;--ac:#2563eb;--bd:#e5e7eb;--ok:#dbeafe;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2027;--tx:#eef0f3;--mut:#9aa3af;--ac:#60a5fa;--bd:#2a313b;--ok:#1e3a5f}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1b2027;--tx:#eef0f3;--mut:#9aa3af;--ac:#60a5fa;--bd:#2a313b;--ok:#1e3a5f}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:480px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 6px}
+button{font:inherit;border:0;border-radius:10px;padding:10px 14px;background:var(--ac);color:#fff;cursor:pointer}
+button.g{background:transparent;color:var(--ac);border:1px solid var(--bd)}
+button.sm{padding:4px 10px}
+input,select{font:inherit;width:100%;padding:9px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stats div{background:var(--bg);border-radius:10px;padding:8px}
+.big{font-size:18px;font-weight:700}.mut{color:var(--mut);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.dow{font-size:12px;color:var(--mut)}
+.d{aspect-ratio:1;border-radius:10px;border:1px solid var(--bd);background:transparent;color:var(--tx);padding:2px;font-size:14px;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.d small{font-size:11px;color:var(--ac);font-weight:700}
+.d.h{background:var(--ok)}.d.s{outline:2px solid var(--ac)}.d.e{visibility:hidden}
+.ent{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--bd)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:9}
+.sheet.on{display:flex}.sheet>div{background:var(--card);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:90%;overflow:auto}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+textarea{width:100%;height:180px;font:13px monospace;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px}
+</style></head><body><main>
+<div class="row" style="margin-bottom:10px"><h1>⏱ Hour Count</h1><div><button class="g sm" id="bJobs">Jobs</button> <button class="g sm" id="bShare">Share</button></div></div>
+
+<div class="card"><div class="row"><button class="g sm" id="prev">‹</button><b id="mt"></b><button class="g sm" id="next">›</button></div>
+<div class="stats" style="margin-top:8px"><div><div class="mut">This month</div><div class="big" id="mh"></div><div id="mp" class="mut"></div></div>
+<div><div class="mut">This week</div><div class="big" id="wh"></div><div id="wp" class="mut"></div></div></div></div>
+
+<div class="card"><div class="grid" id="cal"></div></div>
+
+<div class="card"><div class="row"><h2 id="dt"></h2><button id="bAdd">+ Add hours</button></div><div id="list"></div></div>
+</main>
+
+<div class="sheet" id="fSheet"><div>
+<h2>Add work hours</h2>
+<label>Job</label><select id="fJob"></select>
+<label>Date</label><input type="date" id="fDate">
+<div class="two"><div><label>Start</label><input type="time" id="fS" value="09:00"></div><div><label>End</label><input type="time" id="fE" value="17:00"></div></div>
+<label>Break (minutes)</label><input type="number" id="fB" value="0" min="0">
+<p class="big" id="fTot"></p>
+<div class="row"><button class="g" data-x="fSheet">Cancel</button><button id="fSave">Save</button></div></div></div>
+
+<div class="sheet" id="jSheet"><div>
+<h2>Jobs</h2><div id="jList"></div>
+<label>Workplace name</label><input id="jN" placeholder="e.g. Cafe">
+<div class="two"><div><label>Pay per hour</label><input id="jR" type="number" min="0"></div><div><label>Currency</label><input id="jC" value="KRW"></div></div>
+<div class="row" style="margin-top:12px"><button class="g" data-x="jSheet">Close</button><button id="jAdd">Add job</button></div></div></div>
+
+<div class="sheet" id="sSheet"><div>
+<h2>Share this month</h2><textarea id="sTx" readonly></textarea>
+<div class="row" style="margin-top:10px"><button class="g" data-x="sSheet">Close</button><button id="sCopy">Copy</button></div></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let db={jobs:[],entries:[]};
+try{const s=localStorage.getItem('hc1');if(s)db=JSON.parse(s)}catch(e){}
+const save=()=>{try{localStorage.setItem('hc1',JSON.stringify(db))}catch(e){}};
+const pad=n=>String(n).padStart(2,'0');
+const ds=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=new Date();let cur=new Date(today.getFullYear(),today.getMonth(),1),sel=ds(today);
+const job=id=>db.jobs.find(j=>j.id===id);
+const r1=n=>Math.round(n*100)/100;
+function sum(list){let h=0,p={};list.forEach(e=>{h+=e.hours;const j=job(e.job);if(j)p[j.cur]=(p[j.cur]||0)+e.hours*j.rate});return{h:r1(h),p}}
+const money=p=>Object.keys(p).map(c=>Math.round(p[c]).toLocaleString()+' '+c).join(' + ')||'—';
+function weekOf(s){const d=new Date(s+'T00:00');const o=(d.getDay()+6)%7;const a=new Date(d);a.setDate(d.getDate()-o);const b=new Date(a);b.setDate(a.getDate()+6);return[ds(a),ds(b)]}
+function render(){
+ const y=cur.getFullYear(),m=cur.getMonth(),pre=y+'-'+pad(m+1);
+ $('mt').textContent=cur.toLocaleString('en',{month:'long',year:'numeric'});
+ const me=db.entries.filter(e=>e.date.startsWith(pre)),ms=sum(me);
+ $('mh').textContent=ms.h+' h';$('mp').textContent=money(ms.p);
+ const[w1,w2]=weekOf(sel),ws=sum(db.entries.filter(e=>e.date>=w1&&e.date<=w2));
+ $('wh').textContent=ws.h+' h';$('wp').textContent=money(ws.p);
+ let h=['M','T','W','T','F','S','S'].map(x=>`<div class="dow">${x}</div>`).join('');
+ const off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
+ for(let i=0;i<off;i++)h+='<div class="d e"></div>';
+ for(let d=1;d<=n;d++){const k=pre+'-'+pad(d),t=sum(db.entries.filter(e=>e.date===k)).h;
+  h+=`<button class="d ${t?'h':''} ${k===sel?'s':''}" data-d="${k}">${d}${t?`<small>${t}h</small>`:''}</button>`}
+ $('cal').innerHTML=h;
+ $('dt').textContent=new Date(sel+'T00:00').toLocaleDateString('en',{weekday:'short',month:'short',day:'numeric'});
+ const de=db.entries.filter(e=>e.date===sel);
+ $('list').innerHTML=de.length?de.map(e=>{const j=job(e.job)||{name:'(deleted job)',rate:0,cur:''};
+  return`<div class="ent"><div><b>${esc(j.name)}</b> · ${e.start}–${e.end}<div class="mut">${e.hours} h · ${Math.round(e.hours*j.rate).toLocaleString()} ${j.cur}</div></div><button class="g sm" data-del="${e.id}">✕</button></div>`}).join(''):'<div class="mut">No hours logged.</div>';
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function calc(){const[a,b]=[$('fS').value,$('fE').value];if(!a||!b)return 0;
+ let s=+a.slice(0,2)*60+ +a.slice(3),e=+b.slice(0,2)*60+ +b.slice(3);if(e<=s)e+=1440;
+ const h=r1(Math.max(0,(e-s-(+$('fB').value||0))/60));$('fTot').textContent='Total: '+h+' h';return h}
+['fS','fE','fB'].forEach(i=>$(i).oninput=calc);
+const open=id=>$(id).classList.add('on');
+document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>$(b.dataset.x).classList.remove('on'));
+$('prev').onclick=()=>{cur.setMonth(cur.getMonth()-1);render()};
+$('next').onclick=()=>{cur.setMonth(cur.getMonth()+1);render()};
+$('cal').onclick=e=>{const b=e.target.closest('[data-d]');if(b){sel=b.dataset.d;render()}};
+$('list').onclick=e=>{const b=e.target.closest('[data-del]');if(b){db.entries=db.entries.filter(x=>x.id!==b.dataset.del);save();render()}};
+$('bAdd').onclick=()=>{if(!db.jobs.length){jobs();return}
+ $('fJob').innerHTML=db.jobs.map(j=>`<option value="${j.id}">${esc(j.name)}</option>`).join('');
+ $('fDate').value=sel;calc();open('fSheet')};
+$('fSave').onclick=()=>{const h=calc();if(!h||!$('fDate').value)return;
+ db.entries.push({id:''+Date.now(),job:$('fJob').value,date:$('fDate').value,start:$('fS').value,end:$('fE').value,hours:h});
+ save();sel=$('fDate').value;const d=new Date(sel+'T00:00');cur=new Date(d.getFullYear(),d.getMonth(),1);
+ $('fSheet').classList.remove('on');render()};
+function jobs(){$('jList').innerHTML=db.jobs.map(j=>`<div class="ent"><div><b>${esc(j.name)}</b><div class="mut">${j.rate} ${esc(j.cur)}/h</div></div><button class="g sm" data-j="${j.id}">✕</button></div>`).join('')||'<div class="mut">Add your first job below.</div>';open('jSheet')}
+$('bJobs').onclick=jobs;
+$('jList').onclick=e=>{const b=e.target.closest('[data-j]');if(b){db.jobs=db.jobs.filter(j=>j.id!==b.dataset.j);save();jobs();render()}};
+$('jAdd').onclick=()=>{const n=$('jN').value.trim(),r=+$('jR').value,c=$('jC').value.trim().toUpperCase();if(!n||!r||!c)return;
+ db.jobs.push({id:''+Date.now(),name:n,rate:r,cur:c});$('jN').value='';$('jR').value='';save();jobs()};
+$('bShare').onclick=()=>{const pre=cur.getFullYear()+'-'+pad(cur.getMonth()+1);
+ const l=db.entries.filter(e=>e.date.startsWith(pre)).sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+ const t=sum(l);let s='Work hours – '+$('mt').textContent+'\n\n';
+ l.forEach(e=>{const j=job(e.job)||{name:'?'};s+=`${e.date}  ${j.name}  ${e.start}-${e.end}  ${e.hours}h\n`});
+ s+=`\nTotal: ${t.h} h\nPay: ${money(t.p)}`;$('sTx').value=s;open('sSheet')};
+$('sCopy').onclick=()=>{const t=$('sTx');t.select();try{navigator.clipboard.writeText(t.value)}catch(e){try{document.execCommand('copy')}catch(_){}}$('sCopy').textContent='Copied ✓'};
+render();
+</script></body></html>
